@@ -90,6 +90,24 @@ def test_tz_offset():
     freezer.stop()
 
 
+def test_datetime_timezone_with_tzoffset():
+    with freeze_time("2012-01-14 03:21:34", tz_offset=-4):
+        assert datetime.timezone.utc.utcoffset(None) == datetime.timedelta(0)
+        dt1 = datetime.datetime.now(tz=datetime.timezone.utc)
+        assert datetime.timezone.utc.utcoffset(dt1) == datetime.timedelta(0)
+        assert dt1.hour == 3
+        dt2 = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
+        assert dt2.hour == 3
+        assert dt1.timestamp() == dt2.timestamp()
+
+
+def test_datetime_astimezone():
+    with freeze_time("2012-01-14 03:21:34", tz_offset=-4):
+        dt = datetime.datetime.now()
+        assert dt.isoformat() == "2012-01-13T23:21:34"
+        assert dt.astimezone().isoformat() == "2012-01-13T23:21:34-04:00"
+
+
 def test_timedelta_tz_offset():
     freezer = freeze_time("2012-01-14 03:21:34",
                           tz_offset=-datetime.timedelta(hours=3, minutes=30))
@@ -777,6 +795,7 @@ def test_timestamp_with_tzoffset():
 
         assert utcnow == datetime.datetime.utcfromtimestamp(time.time())
         assert utcnow == datetime.datetime.utcnow()
+
 
 @pytest.mark.skip("timezone handling is currently incorrect")
 def test_datetime_in_timezone(monkeypatch):

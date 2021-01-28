@@ -326,7 +326,8 @@ class FakeDate(with_metaclass(FakeDateMeta, real_date)):
 
     @classmethod
     def _tz_offset(cls):
-        return tz_offsets[-1]
+        top_offset = tz_offsets[-1]
+        return top_offset if top_offset else datetime.timedelta(0)
 
 FakeDate.min = date_to_fakedate(real_date.min)
 FakeDate.max = date_to_fakedate(real_date.max)
@@ -363,8 +364,13 @@ class FakeDatetime(with_metaclass(FakeDatetimeMeta, real_datetime, FakeDate)):
 
     def astimezone(self, tz=None):
         if tz is None:
-            tz = tzlocal()
-        return datetime_to_fakedatetime(real_datetime.astimezone(self, tz))
+            current_tz = self._tz_offset_internal()
+            if current_tz is None:
+                tz = tzlocal()
+            else:
+                tz = dateutil.tz.tzoffset("freezegun", current_tz)
+        return datetime_to_fakedatetime(real_datetime.astimezone(
+            self.replace(tzinfo=tz), tz))
 
     @classmethod
     def fromtimestamp(cls, t, tz=None):
@@ -383,7 +389,9 @@ class FakeDatetime(with_metaclass(FakeDatetimeMeta, real_datetime, FakeDate)):
     def now(cls, tz=None):
         now = cls._time_to_freeze() or real_datetime.now()
         if tz:
-            result = tz.fromutc(now.replace(tzinfo=tz)) + cls._tz_offset()
+            # now is utc
+            result = now + tz.utcoffset(None)
+            result = result.replace(tzinfo=tz)
         else:
             result = now + cls._tz_offset()
         return datetime_to_fakedatetime(result)
@@ -415,6 +423,14 @@ class FakeDatetime(with_metaclass(FakeDatetimeMeta, real_datetime, FakeDate)):
 
     @classmethod
     def _tz_offset(cls):
+        offset = cls._tz_offset_internal()
+        return offset if offset else datetime.timedelta(0)
+
+    @classmethod
+    def _tz_offset_internal(cls):
+        # If freeze_time did not specify the tz_offset specifically, the
+        # stack will contain None, which will be interpreted specially by
+        # astimezone() for backwards-compatibility reasons.
         return tz_offsets[-1]
 
 
@@ -477,8 +493,10 @@ def _parse_time_to_freeze(time_to_freeze_str):
 def _parse_tz_offset(tz_offset):
     if isinstance(tz_offset, datetime.timedelta):
         return tz_offset
-    else:
+    elif tz_offset is not None:
         return datetime.timedelta(hours=tz_offset)
+    else:
+        return None
 
 
 class TickingDateTimeFactory(object):
@@ -786,7 +804,7 @@ class _freeze_time(object):
         return wrapper
 
 
-def freeze_time(time_to_freeze=None, tz_offset=0, ignore=None, tick=False, as_arg=False, as_kwarg='',
+def freeze_time(time_to_freeze=None, tz_offset=None, ignore=None, tick=False, as_arg=False, as_kwarg='',
                 auto_tick_seconds=0):
     acceptable_times = (type(None), _string_type, datetime.date, datetime.timedelta,
              types.FunctionType, types.GeneratorType)

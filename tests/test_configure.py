@@ -25,7 +25,7 @@ def test_default_ignore_list_is_overridden():
 
         _freeze_time_init_mock.assert_called_once_with(
             time_to_freeze_str="2020-10-06",
-            tz_offset=0,
+            tz_offset=None,
             ignore=expected_ignore_list,
             tick=False,
             as_arg=False,
@@ -56,7 +56,7 @@ def test_extend_default_ignore_list():
 
         _freeze_time_init_mock.assert_called_once_with(
             time_to_freeze_str="2020-10-06",
-            tz_offset=0,
+            tz_offset=None,
             ignore=expected_ignore_list,
             tick=False,
             as_arg=False,
